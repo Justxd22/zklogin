@@ -1,0 +1,53 @@
+# Expander CI: unit tests on Github's servers
+# it runs on both macos and ubuntu avx2
+# it does not check for avx512 -- this is not available on github
+
+name: expander-rs CI
+
+on: [push]
+
+env:
+  RUSTFLAGS: "-C target-cpu=native"
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  ACTIONS_RUNNER_DEBUG: true
+
+jobs:
+  build-and-test:
+    name: Build and Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "mpi-v5.0.6"
+
+      - name: Setup Dependencies for Ubuntu workflow
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y build-essential openmpi-bin libopenmpi-dev
+
+      - name: build circuit
+        run: |
+          cargo run --release
+
+      - name: build prove
+        run: |
+          git clone https://github.com/PolyhedraZK/Expander.git
+          cp witness_zklogin.txt circuit_zklogin.txt Expander/
+          cd Expander/
+          git checkout v1.0.0
+          cargo run --bin=dev-setup --release
+          RUST_BACKTRACE=full RUSTFLAGS="-C target-cpu=native" mpiexec -n 2 cargo run --bin expander-exec --release -- prove ./circuit_zklogin.txt ./witness_zklogin.txt ./prove_zklogin
+
