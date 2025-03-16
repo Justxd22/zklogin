@@ -21,6 +21,8 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+          - os: 7950x3d
+            feature: avx512f
 
     steps:
       - name: Checkout code
