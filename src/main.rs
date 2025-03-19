@@ -349,6 +349,8 @@ fn main() {
 
     if output[0] {
         println!("✅ Success! The circuit correctly validated the Ethereum address.");
+        // gen proof
+        
     } else {
         println!("❌ Failure! The circuit rejected the provided data.");
     }
@@ -361,6 +363,39 @@ fn main() {
     let writer = std::io::BufWriter::new(file);
     witness.serialize_into(writer).unwrap();
     println!("dumped to files");
+
+
+    let mut expected_res = vec![true; 8];
+    for i in 0..4 {
+        expected_res[i * 2] = true;
+    }
+    assert_eq!(output, expected_res);
+    println!("passed");
+
+    // alternatively, you can specify the particular config like gkr_field_config::GF2ExtConfig
+    let mut expander_circuit = compile_result.layered_circuit.export_to_expander_flatten();
+
+    let config = GF2Config::new_expander_config();
+
+    let (simd_input, simd_public_input) = witness.to_simd();
+    println!("{} {}", simd_input.len(), simd_public_input.len());
+    expander_circuit.layers[0].input_vals = simd_input;
+    expander_circuit.public_input = simd_public_input.clone();
+
+    // prove
+    expander_circuit.evaluate();
+    let (claimed_v, proof) = gkr::executor::prove(&mut expander_circuit, &config);
+
+    // verify
+    assert!(gkr::executor::verify(
+        &mut expander_circuit,
+        &config,
+        &proof,
+        &claimed_v
+    ));
+
+
+
 }
 
 fn bytes_to_bits_20(bytes: &[u8], num_bytes: usize) -> [GF2; 20 * 8] {
