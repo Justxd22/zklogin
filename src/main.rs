@@ -250,7 +250,7 @@ fn keccak_to_eth_address_hint(hash: &[GF2], address: &mut [GF2]) -> Result<(), E
     let private_key = SecretKey::from_slice(&hash_bytes).expect("Failed to generate valid private key");
     let wallet = LocalWallet::from(SigningKey::from(private_key));
     let eth_address = wallet.address();
-    println!("Ethereum Hint Address: {}", hex::encode(&eth_address));
+    // println!("Ethereum Hint Address: {}", hex::encode(&eth_address));
     
     let address_bytes = eth_address.as_bytes();
     for i in 0..20 {
@@ -274,7 +274,7 @@ fn hash_to_private_key(hash: [u8; 32]) -> SecretKey {
 fn generate_wallet(hash: [u8; 32]) -> [u8; 20] {
     // Convert seed to a private key
     let private_key = hash_to_private_key(hash);
-    println!("SecretKey (hex): {}", hex::encode(private_key.to_bytes()));
+    // println!("SecretKey (hex): {}", hex::encode(private_key.to_bytes()));
 
 
     // Create an Ethereum wallet
@@ -282,138 +282,6 @@ fn generate_wallet(hash: [u8; 32]) -> [u8; 20] {
 
     wallet.address().into()
 }
-
-// fn main() {
-//     let mut hint_registry = HintRegistry::<GF2>::new();
-//     hint_registry.register("myhint.hi", keccak_to_eth_address_hint);
-
-//     let compile_result = compile(&ZkLoginCircuit::default(), CompileOptions::default()).unwrap();
-
-//     // inputs
-//     let sub = "10985";
-//     let email = "tqwqd@gmail.com";
-//     let aud = "61k6v.apps.googleusercontent.com";
-//     let salt = "a21d371b87d8e";
-
-//     // goal input 64 byte hash to circuit
-//     // hash the inputs using blake into 32 byte hash => hash1
-//     // hash the (inputs + salt) again using blake into 32 byte hash => hash2
-//     // combine hash1 + hash2 => 64 byte hash
-//     let mut hash_1 = Blake2s256::new();
-//     hash_1.update(sub.as_bytes());
-//     hash_1.update(email.as_bytes());
-//     hash_1.update(aud.as_bytes());
-//     hash_1.update(salt.as_bytes());
-//     let hash1 = hash_1.finalize();
-//     println!("Orginal hash1: {}", hex::encode(&hash1));
-
-//     let mut hash_2 = Blake2s256::new();
-//     hash_2.update(salt.as_bytes());
-//     hash_2.update(email.as_bytes());
-//     hash_2.update(aud.as_bytes());
-//     hash_2.update(sub.as_bytes());
-//     hash_2.update(salt.as_bytes());
-//     let hash2 = hash_2.finalize();
-//     println!("Orginal hash2: {}", hex::encode(&hash2));
-
-//     // combine
-//     let mut final_hash = [0u8; 64];
-//     final_hash[..32].copy_from_slice(&hash1);
-//     final_hash[32..].copy_from_slice(&hash2);
-//     println!("Final Orginal hash: {}", hex::encode(&final_hash));
-
-//     let output: [u8; 32] = keccak(&final_hash).into();
-//     println!("keccak: {}", hex::encode(&output));
-
-//     // Generate wallet address from keccak256
-//     let address = generate_wallet(output);
-
-//     println!("Ethereum Address: {}", hex::encode(&address));
-
-//     let input_bits = bytes_to_bits_64(&final_hash, 64); // raw blake
-
-//     let output_bits = bytes_to_bits_20(&address, 20);
-
-//     let assignment = ZkLoginCircuit::<GF2> {
-//         input: input_bits,
-//         output: output_bits,
-//     };
-
-//     let assignments = vec![assignment.clone(); 8];
-
-//     let witness = compile_result
-//         .witness_solver
-//         .solve_witnesses_with_hints(&assignments, &mut hint_registry)
-//         .unwrap();
-
-//     let output = compile_result.layered_circuit.run(&witness);
-//     // debug_eval(&ZkLoginCircuit::default(), &assignment, HintCaller::new(&debug_hint_registry));
-
-//     println!("Circuit validation result: {:?}", output);
-
-//     if output[0] {
-//         println!("✅ Success! The circuit correctly validated the Ethereum address.");
-//         // gen proof
-        
-//     } else {
-//         println!("❌ Failure! The circuit rejected the provided data.");
-//     }
-
-//     let file = std::fs::File::create("circuit_zklogin.txt").unwrap();
-//     let writer = std::io::BufWriter::new(file);
-//     compile_result.layered_circuit.serialize_into(writer).unwrap();
-
-//     let file = std::fs::File::create("witness_zklogin.txt").unwrap();
-//     let writer = std::io::BufWriter::new(file);
-//     witness.serialize_into(writer).unwrap();
-//     println!("dumped to files");
-
-
-//     let mut expected_res = vec![true; 8];
-//     for i in 0..4 {
-//         expected_res[i * 2] = true;
-//     }
-//     assert_eq!(output, expected_res);
-//     println!("passed");
-
-//     // alternatively, you can specify the particular config like gkr_field_config::GF2ExtConfig
-//     let mut expander_circuit = compile_result.layered_circuit.export_to_expander_flatten();
-
-//     let config = GF2Config::new_expander_config();
-
-//     let (simd_input, simd_public_input) = witness.to_simd();
-//     println!("{} {}", simd_input.len(), simd_public_input.len());
-//     expander_circuit.layers[0].input_vals = simd_input;
-//     expander_circuit.public_input = simd_public_input.clone();
-
-//     // prove
-//     expander_circuit.evaluate();
-//     let (claimed_v, proof) = gkr::executor::prove(&mut expander_circuit, &config);
-
-//     // verify
-//     assert!(gkr::executor::verify(
-//         &mut expander_circuit,
-//         &config,
-//         &proof,
-//         &claimed_v
-//     ));
-
-
-//     let proof_data = gkr::executor::dump_proof_and_claimed_v(&proof, &claimed_v).unwrap();
-
-//     let mut blake_hasher = Blake2s256::new();
-//     blake_hasher.update(&proof_data);
-//     let blake_hash = blake_hasher.finalize();
-//     println!("Blake2s256 hash of proof data: {}", hex::encode(&blake_hash));
-
-//     use std::fs::File;
-//     use std::io::Write;
-//     let mut file = File::create("proof.txt").unwrap();
-//     file.write_all(&proof_data).unwrap();
-//     println!("Proof data written to proof.txt");
-
-
-// }
 
 fn bytes_to_bits_20(bytes: &[u8], num_bytes: usize) -> [GF2; 20 * 8] {
     let mut result = [GF2::from(0u32); 20 * 8];
