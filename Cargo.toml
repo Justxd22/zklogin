@@ -17,3 +17,5 @@ blake2 = "0.10"
 ethers = "2.0"
 secp256k1 = "0.27"
 gkr = { git = "https://github.com/PolyhedraZK/Expander", branch = "main" }
+actix-web = "4.4"
+once_cell = "1.18"
