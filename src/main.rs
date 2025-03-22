@@ -350,10 +350,24 @@ fn initialize_circuit() -> CompileResult<GF2Config> {
     compile_result
 }
 
+#[derive(Serialize)]
+struct ErrorResponse {
+    error: String,
+}
+
+
 async fn generate_proof(
     data: web::Json<ZkLoginRequest>,
     app_state: web::Data<AppState>,
 ) -> impl Responder {
+    
+    if data.sub.is_empty() || data.email.is_empty() || data.aud.is_empty() || data.salt.is_empty() {
+        return HttpResponse::NotFound()
+        .json(ErrorResponse { 
+            error: "Access denied: Missing required fields".to_string() 
+            });
+        }
+        
     let request = data.into_inner();
     
     // Hash the inputs using Blake2s (as in your original code)
@@ -467,6 +481,9 @@ async fn options_handler() -> impl Responder {
         .finish()
 }
 
+async fn index() -> impl Responder {
+    HttpResponse::Ok().body("nothing to see here")
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -492,6 +509,7 @@ async fn main() -> std::io::Result<()> {
             )
             .route("/api/zklogin", web::post().to(generate_proof))
             .route("/api/zklogin", web::method(actix_web::http::Method::OPTIONS).to(options_handler))
+            .route("/", web::get().to(index))
     })
     .bind("127.0.0.1:8080")?
     .run()
