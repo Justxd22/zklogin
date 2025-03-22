@@ -1,4 +1,5 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use actix_cors::Cors;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
@@ -10,6 +11,7 @@ use expander_compiler::frontend::*;
 use keccak_hash::keccak;
 use blake2::{Blake2s256, Digest};
 use hex;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 
 fn rc() -> Vec<u64> {
@@ -332,6 +334,9 @@ struct ZkLoginResponse {
     success: bool,
     ethereum_address: String,
     proof_hash: String,
+    timestamp: u64,
+    signature: String,
+    message: String,
 }
 
 
@@ -425,13 +430,43 @@ async fn generate_proof(
     let blake_hash = blake_hasher.finalize();
     let proof_hash = hex::encode(&blake_hash);
     
-    // Return JSON response
+    // Get current timestamp
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_secs();
+    
+    // Create message to sign: (timestamp, proof_hash, address)
+    let message = format!("{}:{}:0x{}", timestamp, proof_hash, address_hex);
+
+    // Sign the message with the wallet
+    let key: [u8; 32] = hex::decode("4c0883a69102937d6231471b5dbb6204fe512961708279826f9569e293e3837e").expect("Invalid hex private key").try_into().expect("Private key must be 32 bytes");
+    let priv_key =  hash_to_private_key(key);
+    let wallet = LocalWallet::from(SigningKey::from(priv_key));
+    let message_hash = keccak(message.as_bytes());
+    let signature = wallet.sign_message(message_hash).await.unwrap();
+    let signature_hex = format!("0x{}", hex::encode(signature.to_vec()));
+    
+    // Return JSON response with the signature
     HttpResponse::Ok().json(ZkLoginResponse {
         success: output[0],
         ethereum_address: address_hex,
         proof_hash,
+        timestamp,
+        message,
+        signature: signature_hex,
     })
 }
+
+
+async fn options_handler() -> impl Responder {
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .append_header(("Access-Control-Allow-Methods", "POST, OPTIONS"))
+        .append_header(("Access-Control-Allow-Headers", "*"))
+        .finish()
+}
+
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -441,7 +476,6 @@ async fn main() -> std::io::Result<()> {
     // Create shared application state
     let app_state = web::Data::new(AppState {
         compiled_circuit: Mutex::new(compile_result),
-        // hint_registry: Mutex::new(hint_registry),
     });
     
     println!("Server starting at http://127.0.0.1:8080");
@@ -450,7 +484,14 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())
+            .wrap(
+                Cors::default()
+                    .allow_any_origin()
+                    .allowed_methods(vec!["GET", "POST", "OPTIONS"])
+                    .allowed_headers(vec!["Content-Type"])
+            )
             .route("/api/zklogin", web::post().to(generate_proof))
+            .route("/api/zklogin", web::method(actix_web::http::Method::OPTIONS).to(options_handler))
     })
     .bind("127.0.0.1:8080")?
     .run()
