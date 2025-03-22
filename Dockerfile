@@ -1,10 +1,10 @@
 # Use a minimal base image (Alpine for small size, Debian for compatibility)
-FROM debian:bullseye-slim 
+FROM debian:bookworm-slim
 
 # Set working directory
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y libopenmpi-dev && rm -rf /var/lib/apt/lists/*
+RUN DEBIAN_FRONTEND=noninteractive apt update && apt install -y libopenmpi-dev tzdata
 
 # Copy the precompiled Rust binary
 COPY zklogin /app/zklogin
