@@ -4,6 +4,8 @@ FROM debian:bullseye-slim
 # Set working directory
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y libopenmpi-dev && rm -rf /var/lib/apt/lists/*
+
 # Copy the precompiled Rust binary
 COPY zklogin /app/zklogin
 
