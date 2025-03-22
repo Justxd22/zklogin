@@ -485,6 +485,11 @@ async fn index() -> impl Responder {
     HttpResponse::Ok().body("nothing to see here")
 }
 
+async fn ping() -> impl Responder {
+    HttpResponse::Ok()
+}
+
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Initialize circuit only once
@@ -510,6 +515,7 @@ async fn main() -> std::io::Result<()> {
             .route("/api/zklogin", web::post().to(generate_proof))
             .route("/api/zklogin", web::method(actix_web::http::Method::OPTIONS).to(options_handler))
             .route("/", web::get().to(index))
+            .route("/live", web::get().to(ping))
     })
     .bind("127.0.0.1:8080")?
     .run()
